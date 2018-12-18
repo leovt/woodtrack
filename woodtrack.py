@@ -128,6 +128,18 @@ def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decor
     for item in end_decoration:
         yield tre.transform(item)
 
+    amin = -GROOVE_OVERHANG / radius
+    amax = angle + GROOVE_OVERHANG / radius
+    steps = int(radius*(amax-amin))
+    dp = (amax-amin) / steps
+    for ro, ri in ((radius+0.5*CENTER_WIDTH+GROOVE_WIDTH, radius+0.5*CENTER_WIDTH),
+                   (radius-0.5*CENTER_WIDTH, radius-0.5*CENTER_WIDTH-GROOVE_WIDTH)):
+        points = [(ro * sin(amin+i*dp), radius - ro * cos(amin+i*dp)) for i in range(steps+1)]
+        points += [(ri * sin(amin+i*dp), radius - ri * cos(amin+i*dp)) for i in range(steps, -1, -1)]
+
+        groove = ('polygon', 'grey',) + tuple(points)
+        yield trs.transform(groove)
+
 
 with open('woodtrack.svg', 'w') as f:
     f.write(items_to_svg(chain(

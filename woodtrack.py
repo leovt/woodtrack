@@ -1,4 +1,5 @@
-import math
+from itertools import chain
+from math import sin, cos, pi, hypot
 
 TRACK_WIDTH = 40.0
 GROOVE_WIDTH = 6.0
@@ -72,14 +73,12 @@ class Transformation(tuple):
 def straight(start, end, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE):
     dx = end[0] - start[0]
     dy = end[1] - start[1]
-    dd = math.hypot(dx, dy)
+    dd = hypot(dx, dy)
     dxn = dx / dd
     dyn = dy / dd
 
     trs = Transformation((dxn, -dyn, start[0], dyn, dxn, start[1]))
-    print(trs)
     tre = Transformation((-dxn, dyn, end[0], -dyn, -dxn, end[1]))
-    print(tre)
 
     base = rectangle('black', 0.0, 0.5*TRACK_WIDTH, dd, -0.5*TRACK_WIDTH)
 
@@ -93,6 +92,45 @@ def straight(start, end, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE)
         groove = rectangle('grey', -GROOVE_OVERHANG, sign*CENTER_WIDTH*0.5, dd + GROOVE_OVERHANG, sign*(CENTER_WIDTH*0.5+GROOVE_WIDTH))
         yield trs.transform(groove)
 
+def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE):
+
+    angle = angle * pi / 180
+
+    steps = int(radius*angle)
+
+    dp = angle / steps
+
+    dx, dy = direction
+    dd = hypot(dx, dy)
+    dxn = dx / dd
+    dyn = dy / dd
+
+
+    dxe = dxn * cos(angle) + dyn * sin(angle)
+    dye = -dxn * sin(angle) + dyn * cos(angle)
+
+    end = (radius * sin(angle), radius * (1-cos(angle)))
+
+    ro = radius + 0.5*TRACK_WIDTH
+    ri = radius - 0.5*TRACK_WIDTH
+    points = [(ro * sin(i*dp), radius - ro * cos(i*dp)) for i in range(steps+1)]
+    points += [(ri * sin(i*dp), radius - ri * cos(i*dp)) for i in range(steps, -1, -1)]
+
+    base = ('polygon', 'black',) + tuple(points)
+
+    trs = Transformation((dxn, -dyn, start[0], dyn, dxn, start[1]))
+    end = trs.transform(end)
+    tre = Transformation((dxe, dye, end[0], -dye, dxe, end[1]))
+
+    yield trs.transform(base)
+    for item in start_decoration:
+        yield trs.transform(item)
+    for item in end_decoration:
+        yield tre.transform(item)
+
 
 with open('woodtrack.svg', 'w') as f:
-    f.write(items_to_svg(straight((30.0, 10.0), (30.0, 150.0))))
+    f.write(items_to_svg(chain(
+        straight((30.0, 10.0), (30.0, 150.0)),
+        arc((130.0, 10.0), (0.0, 1.0), 192.0, 45.0),
+        )))

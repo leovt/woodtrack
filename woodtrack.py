@@ -44,7 +44,14 @@ def items_to_svg(items, width=300.0, height=300.0):
     width="{width}mm"
     height="{height}mm"
     viewBox="0 0 {width} {height}"
-    xmlns="http://www.w3.org/2000/svg">\n'''
+    xmlns="http://www.w3.org/2000/svg">
+<defs>
+<pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+   <rect x="0" y="0" width="10" height="10" fill="none" stroke="blue" stroke-width="0.2" />
+ </pattern>
+ </defs>
+ <rect id="background" width="{width}" height="{height}" fill="url(#grid)" />
+'''
     return preamble + '\n'.join(item_to_svg(it) for it in items) + '\n</svg>\n'
 
 class Transformation(tuple):

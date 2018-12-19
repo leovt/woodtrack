@@ -77,7 +77,7 @@ class Transformation(tuple):
     def __add__(self, offset):
         return Transformation(self[:4]+(self[4]+offset[0], self[5]+offset[1]))
 
-def straight(start, end, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE):
+def straight(start, end, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
     dx = end[0] - start[0]
     dy = end[1] - start[1]
     dd = hypot(dx, dy)
@@ -89,17 +89,19 @@ def straight(start, end, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE)
 
     base = rectangle('black', 0.0, 0.5*TRACK_WIDTH, dd, -0.5*TRACK_WIDTH)
 
-    yield trs.transform(base)
-    for item in start_decoration:
-        yield trs.transform(item)
-    for item in end_decoration:
-        yield tre.transform(item)
+    if draw_base:
+        yield trs.transform(base)
+        for item in start_decoration:
+            yield trs.transform(item)
+        for item in end_decoration:
+            yield tre.transform(item)
 
-    for sign in (1.0, -1.0):
-        groove = rectangle('grey', -GROOVE_OVERHANG, sign*CENTER_WIDTH*0.5, dd + GROOVE_OVERHANG, sign*(CENTER_WIDTH*0.5+GROOVE_WIDTH))
-        yield trs.transform(groove)
+    if draw_groove:
+        for sign in (1.0, -1.0):
+            groove = rectangle('grey', -GROOVE_OVERHANG, sign*CENTER_WIDTH*0.5, dd + GROOVE_OVERHANG, sign*(CENTER_WIDTH*0.5+GROOVE_WIDTH))
+            yield trs.transform(groove)
 
-def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE):
+def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
     steps = int(radius*angle)
 
     dp = angle / steps
@@ -126,25 +128,27 @@ def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decor
     end = trs.transform(end)
     tre = Transformation((dxe, -dye, end[0], dye, dxe, end[1]))
 
-    yield trs.transform(base)
-    for item in start_decoration:
-        yield trs.transform(item)
-    for item in end_decoration:
-        yield tre.transform(item)
+    if draw_base:
+        yield trs.transform(base)
+        for item in start_decoration:
+            yield trs.transform(item)
+        for item in end_decoration:
+            yield tre.transform(item)
 
-    amin = -GROOVE_OVERHANG / radius
-    amax = angle + GROOVE_OVERHANG / radius
-    steps = int(radius*(amax-amin))
-    dp = (amax-amin) / steps
-    for ro, ri in ((radius+0.5*CENTER_WIDTH+GROOVE_WIDTH, radius+0.5*CENTER_WIDTH),
-                   (radius-0.5*CENTER_WIDTH, radius-0.5*CENTER_WIDTH-GROOVE_WIDTH)):
-        points = [(ro * sin(amin+i*dp), radius - ro * cos(amin+i*dp)) for i in range(steps+1)]
-        points += [(ri * sin(amin+i*dp), radius - ri * cos(amin+i*dp)) for i in range(steps, -1, -1)]
+    if draw_groove:
+        amin = -GROOVE_OVERHANG / radius
+        amax = angle + GROOVE_OVERHANG / radius
+        steps = int(radius*(amax-amin))
+        dp = (amax-amin) / steps
+        for ro, ri in ((radius+0.5*CENTER_WIDTH+GROOVE_WIDTH, radius+0.5*CENTER_WIDTH),
+                       (radius-0.5*CENTER_WIDTH, radius-0.5*CENTER_WIDTH-GROOVE_WIDTH)):
+            points = [(ro * sin(amin+i*dp), radius - ro * cos(amin+i*dp)) for i in range(steps+1)]
+            points += [(ri * sin(amin+i*dp), radius - ri * cos(amin+i*dp)) for i in range(steps, -1, -1)]
 
-        groove = ('polygon', 'grey',) + tuple(points)
-        yield trs.transform(groove)
+            groove = ('polygon', 'grey',) + tuple(points)
+            yield trs.transform(groove)
 
-def double_switch(start, direction, radius, angle):
+def double_switch(start, direction, radius, angle, draw_base=True, draw_groove=True):
     L = radius * tan(0.5*angle)
 
     A = (0.0, 0.0)
@@ -164,16 +168,29 @@ def double_switch(start, direction, radius, angle):
     C = trs.transform(C)
     D = trs.transform(D)
 
-    yield from straight(A, B)
-    yield from straight(C, D)
-    yield from arc(start, direction, radius, angle, start_decoration=(), end_decoration=())
-    yield from arc(B, (-direction[0],-direction[1]), radius, angle, start_decoration=(), end_decoration=())
-
+    if draw_base:
+        yield from arc(start, direction, radius, angle,
+                       start_decoration=(), end_decoration=(),
+                       draw_base=True, draw_groove=False)
+        yield from arc(B, (-direction[0],-direction[1]), radius, angle,
+                       start_decoration=(), end_decoration=(),
+                       draw_base=True, draw_groove=False)
+        yield from straight(A, B, draw_base=True, draw_groove=False)
+        yield from straight(C, D, draw_base=True, draw_groove=False)
+    if draw_groove:
+        yield from arc(start, direction, radius, angle,
+                       start_decoration=(), end_decoration=(),
+                       draw_base=False, draw_groove=True)
+        yield from arc(B, (-direction[0],-direction[1]), radius, angle,
+                       start_decoration=(), end_decoration=(),
+                       draw_base=False, draw_groove=True)
+        yield from straight(A, B, draw_base=False, draw_groove=True)
+        yield from straight(C, D, draw_base=False, draw_groove=True)
 
 
 with open('woodtrack.svg', 'w') as f:
     f.write(items_to_svg(chain(
         straight((30.0, 10.0), (30.0, 150.0)),
         arc((80.0, 10.0), (cos(67.5*pi/180), sin(67.5*pi/180)), 192.0, pi/4),
-        double_switch((200, 10.0), (0.0, 1.0), 170, pi/4),
+        double_switch((200, 10.0), (0.0, 1.0), 165, pi/4),
         )))

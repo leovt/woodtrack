@@ -113,8 +113,8 @@ def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decor
     dyn = dy / dd
 
 
-    dxe = dxn * cos(angle) + dyn * sin(angle)
-    dye = -dxn * sin(angle) + dyn * cos(angle)
+    dxe = dxn * cos(angle+pi) - dyn * sin(angle+pi)
+    dye = dxn * sin(angle+pi) + dyn * cos(angle+pi)
 
     end = (radius * sin(angle), radius * (1-cos(angle)))
 
@@ -127,7 +127,7 @@ def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decor
 
     trs = Transformation((dxn, -dyn, start[0], dyn, dxn, start[1]))
     end = trs.transform(end)
-    tre = Transformation((dxe, dye, end[0], -dye, dxe, end[1]))
+    tre = Transformation((dxe, -dye, end[0], dye, dxe, end[1]))
 
     yield trs.transform(base)
     for item in start_decoration:
@@ -151,5 +151,5 @@ def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decor
 with open('woodtrack.svg', 'w') as f:
     f.write(items_to_svg(chain(
         straight((30.0, 10.0), (30.0, 150.0)),
-        arc((130.0, 10.0), (0.0, 1.0), 192.0, 45.0),
+        arc((130.0, 10.0), (cos(67.5*pi/180), sin(67.5*pi/180)), 192.0, 45.0),
         )))

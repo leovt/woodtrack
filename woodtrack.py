@@ -1,5 +1,5 @@
 from itertools import chain
-from math import sin, cos, pi, hypot
+from math import sin, cos, tan, pi, hypot
 
 TRACK_WIDTH = 40.0
 GROOVE_WIDTH = 6.0
@@ -100,9 +100,6 @@ def straight(start, end, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE)
         yield trs.transform(groove)
 
 def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE):
-
-    angle = angle * pi / 180
-
     steps = int(radius*angle)
 
     dp = angle / steps
@@ -147,9 +144,36 @@ def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decor
         groove = ('polygon', 'grey',) + tuple(points)
         yield trs.transform(groove)
 
+def double_switch(start, direction, radius, angle):
+    L = radius * tan(0.5*angle)
+
+    A = (0.0, 0.0)
+    B = (2*L, 0.0)
+    C = (L*(1-cos(angle)), -L*sin(angle))
+    D = (L*(1+cos(angle)), L*sin(angle))
+
+    dx, dy = direction
+    dd = hypot(dx, dy)
+    dxn = dx / dd
+    dyn = dy / dd
+
+    trs = Transformation((dxn, -dyn, start[0], dyn, dxn, start[1]))
+
+    A = trs.transform(A)
+    B = trs.transform(B)
+    C = trs.transform(C)
+    D = trs.transform(D)
+
+    yield from straight(A, B)
+    yield from straight(C, D)
+    yield from arc(start, direction, radius, angle, start_decoration=(), end_decoration=())
+    yield from arc(B, (-direction[0],-direction[1]), radius, angle, start_decoration=(), end_decoration=())
+
+
 
 with open('woodtrack.svg', 'w') as f:
     f.write(items_to_svg(chain(
         straight((30.0, 10.0), (30.0, 150.0)),
-        arc((130.0, 10.0), (cos(67.5*pi/180), sin(67.5*pi/180)), 192.0, 45.0),
+        arc((80.0, 10.0), (cos(67.5*pi/180), sin(67.5*pi/180)), 192.0, pi/4),
+        double_switch((200, 10.0), (0.0, 1.0), 170, pi/4),
         )))

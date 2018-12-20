@@ -6,9 +6,9 @@ GROOVE_WIDTH = 6.0
 CENTER_WIDTH = 20.0
 GROOVE_OVERHANG = 1.0
 
-MALE_DIAM = 11.0
+MALE_DIAM = 11.5
 MALE_SHAFT_WIDTH = 5.5
-MALE_LENGTH = 18.0
+MALE_LENGTH = 17.7
 MALE_OVERHANG = 1.0
 
 FEMALE_DIAM = 12.0
@@ -190,7 +190,9 @@ def double_switch(start, direction, radius, angle, draw_base=True, draw_groove=T
 
 with open('woodtrack.svg', 'w') as f:
     f.write(items_to_svg(chain(
-        straight((30.0, 10.0), (30.0, 150.0)),
+        straight((30.0, 10.0), (30.0, 60.0)),
+        straight((30.0, 80.0), (30.0, 130.0), end_decoration=FEMALE_BASE),
+        straight((30.0, 150.0), (30.0, 200.0), start_decoration=MALE_BASE),
         arc((80.0, 10.0), (cos(67.5*pi/180), sin(67.5*pi/180)), 192.0, pi/4),
         double_switch((200, 10.0), (0.0, 1.0), 165, pi/4),
         )))

@@ -1,5 +1,5 @@
 from itertools import chain
-from math import sin, cos, tan, pi, hypot
+from math import sin, cos, tan, pi
 
 TRACK_WIDTH = 40.0
 GROOVE_WIDTH = 6.0
@@ -17,25 +17,25 @@ FEMALE_LENGTH = 18.5
 FEMALE_OVERHANG = 1.0
 
 def rectangle(color, x1, y1, x2, y2):
-    return ('polygon', color, (x1, y1), (x2, y1), (x2, y2), (x1, y2))
+    return ('polygon', color, complex(x1, y1), complex(x2, y1), complex(x2, y2), complex(x1, y2))
 
 MALE_BASE = [
     rectangle('black', MALE_OVERHANG, 0.5*MALE_SHAFT_WIDTH, -MALE_LENGTH+0.5*MALE_DIAM, -0.5*MALE_SHAFT_WIDTH),
-    ('circle', 'black', (-MALE_LENGTH + 0.5*MALE_DIAM, 0.0), 0.5*MALE_DIAM)
+    ('circle', 'black', complex(-MALE_LENGTH + 0.5*MALE_DIAM, 0.0), 0.5*MALE_DIAM)
 ]
 
 FEMALE_BASE = [
     rectangle('white', -FEMALE_OVERHANG, 0.5*FEMALE_SHAFT_WIDTH, FEMALE_LENGTH-0.5*FEMALE_DIAM, -0.5*FEMALE_SHAFT_WIDTH),
-    ('circle', 'white', (FEMALE_LENGTH - 0.5*FEMALE_DIAM, 0.0), 0.5*FEMALE_DIAM)
+    ('circle', 'white', complex(FEMALE_LENGTH - 0.5*FEMALE_DIAM, 0.0), 0.5*FEMALE_DIAM)
 ]
 
 
 def item_to_svg(item):
     if item[0] == 'circle':
-        _, color, (cx,cy), r = item
-        return f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{color}"/>'
+        _, color, center, r = item
+        return f'<circle cx="{center.real}" cy="{center.imag}" r="{r}" fill="{color}"/>'
     elif item[0] == 'polygon':
-        points = ' '.join(f'{pt[0]},{pt[1]}' for pt in item[2:])
+        points = ' '.join(f'{pt.real},{pt.imag}' for pt in item[2:])
         return f'<polygon points="{points}" fill="{item[1]}"/>'
 
 def items_to_svg(items, width=300.0, height=300.0):
@@ -62,30 +62,32 @@ class Transformation(tuple):
         return self
 
     def transform(self, item):
-        if item[0] == 'polygon':
-            return item[:2] + tuple(self.transform(pt) for pt in item[2:])
-        if item[0] == 'circle':
-            return item[:2] + (self.transform(item[2]), item[3])
+        if isinstance(item, tuple):
+            if item[0] == 'polygon':
+                return item[:2] + tuple(self.transform(pt) for pt in item[2:])
+            elif item[0] == 'circle':
+                return item[:2] + (self.transform(item[2]), item[3])
+            else:
+                assert False, f'unknown shape {item!r}'
 
-        x,y = item
-        return self[0]*x + self[1]*y + self[2], self[3]*x + self[4]*y + self[5]
+        x,y = item.real, item.imag
+        return complex(self[0]*x + self[1]*y + self[2], self[3]*x + self[4]*y + self[5])
 
     @classmethod
     def translate(cls, x, y):
         return cls((1.0, 0.0, x, 0.0, 1.0, y))
 
     def __add__(self, offset):
-        return Transformation(self[:4]+(self[4]+offset[0], self[5]+offset[1]))
+        return Transformation(self[:4]+(self[4]+offset.real, self[5]+offset.imag))
 
 def straight(start, end, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
-    dx = end[0] - start[0]
-    dy = end[1] - start[1]
-    dd = hypot(dx, dy)
-    dxn = dx / dd
-    dyn = dy / dd
+    d = end - start
+    dd = abs(d)
+    dn = d / dd
+    dxn, dyn = dn.real, dn.imag
 
-    trs = Transformation((dxn, -dyn, start[0], dyn, dxn, start[1]))
-    tre = Transformation((-dxn, dyn, end[0], -dyn, -dxn, end[1]))
+    trs = Transformation((dxn, -dyn, start.real, dyn, dxn, start.imag))
+    tre = Transformation((-dxn, dyn, end.real, -dyn, -dxn, end.imag))
 
     base = rectangle('black', 0.0, 0.5*TRACK_WIDTH, dd, -0.5*TRACK_WIDTH)
 
@@ -106,27 +108,25 @@ def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decor
 
     dp = angle / steps
 
-    dx, dy = direction
-    dd = hypot(dx, dy)
-    dxn = dx / dd
-    dyn = dy / dd
-
+    dd = abs(direction)
+    dn = direction / dd
+    dxn, dyn = dn.real, dn.imag
 
     dxe = dxn * cos(angle+pi) - dyn * sin(angle+pi)
     dye = dxn * sin(angle+pi) + dyn * cos(angle+pi)
 
-    end = (radius * sin(angle), radius * (1-cos(angle)))
+    end = complex(radius * sin(angle), radius * (1-cos(angle)))
 
     ro = radius + 0.5*TRACK_WIDTH
     ri = radius - 0.5*TRACK_WIDTH
-    points = [(ro * sin(i*dp), radius - ro * cos(i*dp)) for i in range(steps+1)]
-    points += [(ri * sin(i*dp), radius - ri * cos(i*dp)) for i in range(steps, -1, -1)]
+    points = [complex(ro * sin(i*dp), radius - ro * cos(i*dp)) for i in range(steps+1)]
+    points += [complex(ri * sin(i*dp), radius - ri * cos(i*dp)) for i in range(steps, -1, -1)]
 
     base = ('polygon', 'black',) + tuple(points)
 
-    trs = Transformation((dxn, -dyn, start[0], dyn, dxn, start[1]))
+    trs = Transformation((dxn, -dyn, start.real, dyn, dxn, start.imag))
     end = trs.transform(end)
-    tre = Transformation((dxe, -dye, end[0], dye, dxe, end[1]))
+    tre = Transformation((dxe, -dye, end.real, dye, dxe, end.imag))
 
     if draw_base:
         yield trs.transform(base)
@@ -142,8 +142,8 @@ def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decor
         dp = (amax-amin) / steps
         for ro, ri in ((radius+0.5*CENTER_WIDTH+GROOVE_WIDTH, radius+0.5*CENTER_WIDTH),
                        (radius-0.5*CENTER_WIDTH, radius-0.5*CENTER_WIDTH-GROOVE_WIDTH)):
-            points = [(ro * sin(amin+i*dp), radius - ro * cos(amin+i*dp)) for i in range(steps+1)]
-            points += [(ri * sin(amin+i*dp), radius - ri * cos(amin+i*dp)) for i in range(steps, -1, -1)]
+            points = [complex(ro * sin(amin+i*dp), radius - ro * cos(amin+i*dp)) for i in range(steps+1)]
+            points += [complex(ri * sin(amin+i*dp), radius - ri * cos(amin+i*dp)) for i in range(steps, -1, -1)]
 
             groove = ('polygon', 'grey',) + tuple(points)
             yield trs.transform(groove)
@@ -151,17 +151,16 @@ def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decor
 def double_switch(start, direction, radius, angle, draw_base=True, draw_groove=True):
     L = radius * tan(0.5*angle)
 
-    A = (0.0, 0.0)
-    B = (2*L, 0.0)
-    C = (L*(1-cos(angle)), -L*sin(angle))
-    D = (L*(1+cos(angle)), L*sin(angle))
+    A = 0.0
+    B = 2*L
+    C = complex(L*(1-cos(angle)), -L*sin(angle))
+    D = complex(L*(1+cos(angle)), L*sin(angle))
 
-    dx, dy = direction
-    dd = hypot(dx, dy)
-    dxn = dx / dd
-    dyn = dy / dd
+    dd = abs(direction)
+    dn = direction / dd
+    dxn, dyn = dn.real, dn.imag
 
-    trs = Transformation((dxn, -dyn, start[0], dyn, dxn, start[1]))
+    trs = Transformation((dxn, -dyn, start.real, dyn, dxn, start.imag))
 
     A = trs.transform(A)
     B = trs.transform(B)
@@ -172,7 +171,7 @@ def double_switch(start, direction, radius, angle, draw_base=True, draw_groove=T
         yield from arc(start, direction, radius, angle,
                        start_decoration=(), end_decoration=(),
                        draw_base=True, draw_groove=False)
-        yield from arc(B, (-direction[0],-direction[1]), radius, angle,
+        yield from arc(B, -direction, radius, angle,
                        start_decoration=(), end_decoration=(),
                        draw_base=True, draw_groove=False)
         yield from straight(A, B, draw_base=True, draw_groove=False)
@@ -181,7 +180,7 @@ def double_switch(start, direction, radius, angle, draw_base=True, draw_groove=T
         yield from arc(start, direction, radius, angle,
                        start_decoration=(), end_decoration=(),
                        draw_base=False, draw_groove=True)
-        yield from arc(B, (-direction[0],-direction[1]), radius, angle,
+        yield from arc(B, -direction, radius, angle,
                        start_decoration=(), end_decoration=(),
                        draw_base=False, draw_groove=True)
         yield from straight(A, B, draw_base=False, draw_groove=True)
@@ -190,9 +189,9 @@ def double_switch(start, direction, radius, angle, draw_base=True, draw_groove=T
 
 with open('woodtrack.svg', 'w') as f:
     f.write(items_to_svg(chain(
-        straight((30.0, 10.0), (30.0, 60.0)),
-        straight((30.0, 80.0), (30.0, 130.0), end_decoration=FEMALE_BASE),
-        straight((30.0, 150.0), (30.0, 200.0), start_decoration=MALE_BASE),
-        arc((80.0, 10.0), (cos(67.5*pi/180), sin(67.5*pi/180)), 192.0, pi/4),
-        double_switch((200, 10.0), (0.0, 1.0), 165, pi/4),
+        straight(30.0+10.0j, 30.0+60.0j),
+        straight(30.0+80.0j, 30.0+130.0j, end_decoration=FEMALE_BASE),
+        straight(30.0+150.0j, 30.0+200.0j, start_decoration=MALE_BASE),
+        arc(80.0+10.0j, complex(cos(67.5*pi/180), sin(67.5*pi/180)), 192.0, pi/4),
+        double_switch(200+10.0j, 1.0j, 165, pi/4),
         )))

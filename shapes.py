@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+import functools
+
 
 @dataclass
 class Polygon:
@@ -30,3 +32,20 @@ class Circle:
 
     def to_svg(self):
         return f'<circle cx="{self.center.real}" cy="{self.center.imag}" r="{self.radius}" fill="{self.color}"/>'
+
+
+class ShapeCollection(list):
+    def __add__(self, offset):
+        return ShapeCollection(x + offset for x in self)
+
+    def __mul__(self, rotation):
+        return ShapeCollection(x * rotation for x in self)
+
+    def to_svg(self):
+        return '\n'.join(x.to_svg() for x in self)
+
+def return_collection(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return ShapeCollection(func(*args, **kwargs))
+    return wrapper

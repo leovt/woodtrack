@@ -2,7 +2,7 @@ from itertools import chain
 from math import sin, cos, tan, pi
 import cmath
 
-from shapes import Polygon, Circle
+from shapes import Polygon, Circle, ShapeCollection, return_collection
 
 TRACK_WIDTH = 40.0
 GROOVE_WIDTH = 6.0
@@ -22,15 +22,17 @@ FEMALE_OVERHANG = 1.0
 def rectangle(color, x1, y1, x2, y2):
     return Polygon([complex(x1, y1), complex(x2, y1), complex(x2, y2), complex(x1, y2)], color)
 
-MALE_BASE = [
+MALE_BASE = ShapeCollection([
     rectangle('black', MALE_OVERHANG, 0.5*MALE_SHAFT_WIDTH, -MALE_LENGTH+0.5*MALE_DIAM, -0.5*MALE_SHAFT_WIDTH),
     Circle(complex(-MALE_LENGTH + 0.5*MALE_DIAM, 0.0), 0.5*MALE_DIAM, 'black')
-]
+])
 
-FEMALE_BASE = [
+FEMALE_BASE = ShapeCollection([
     rectangle('white', -FEMALE_OVERHANG, 0.5*FEMALE_SHAFT_WIDTH, FEMALE_LENGTH-0.5*FEMALE_DIAM, -0.5*FEMALE_SHAFT_WIDTH),
     Circle(complex(FEMALE_LENGTH - 0.5*FEMALE_DIAM, 0.0), 0.5*FEMALE_DIAM, 'white')
-]
+])
+
+NO_DECORATION = ShapeCollection([])
 
 
 def items_to_svg(items, width=300.0, height=300.0):
@@ -49,57 +51,29 @@ def items_to_svg(items, width=300.0, height=300.0):
 '''
     return preamble + '\n'.join(item.to_svg() for item in items) + '\n</svg>\n'
 
-class Transformation:
-    def __init__(self, rotation=1.0, translation=0.0):
-        complex(rotation)
-        complex(translation)
-        self.rotation = rotation
-        self.translation = translation
-
-    def transform(self, item):
-        return item*self.rotation + self.translation
-
-    @classmethod
-    def translate(cls, x, y):
-        return cls((1.0, 0.0, x, 0.0, 1.0, y))
-
-    def __add__(self, offset):
-        return Transformation(self.rotation, self.translation + offset)
+@return_collection
+def place(items, start, direction):
+    return items * (direction/abs(direction)) + start
 
 
-def place(start, direction, items):
-    dd = abs(direction)
-    dn = direction / dd
-    trs = Transformation(dn, start)
-    return map(trs.transform, items)
-
-
-def straight(start, end, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
-    return place(start, (end-start)/abs(end-start),
-                 _straight(abs(end-start), start_decoration, end_decoration, draw_base, draw_groove))
-
-
-def _straight(length, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
+@return_collection
+def straight(length, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
     base = rectangle('black', 0.0, 0.5*TRACK_WIDTH, length, -0.5*TRACK_WIDTH)
-    tre = Transformation(1, length)
 
     if draw_base:
         yield base
-        for item in start_decoration:
-            yield item
+        yield from start_decoration
         for item in end_decoration:
-            yield tre.transform(item)
+            yield item * (-1) + length
 
     if draw_groove:
         for sign in (1.0, -1.0):
             groove = rectangle('grey', -GROOVE_OVERHANG, sign*CENTER_WIDTH*0.5, length + GROOVE_OVERHANG, sign*(CENTER_WIDTH*0.5+GROOVE_WIDTH))
             yield groove
 
-def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
-    return place(start, direction,
-                 _arc(radius, angle, start_decoration, end_decoration, draw_base, draw_groove))
 
-def _arc(radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
+@return_collection
+def arc(radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
     steps = int(radius*angle)
     dp = angle / steps
 
@@ -112,14 +86,10 @@ def _arc(radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, 
 
     base = Polygon(points, 'black')
 
-    tre = Transformation(-cmath.rect(1.0, angle), end)
-
     if draw_base:
         yield base
-        for item in start_decoration:
-            yield item
-        for item in end_decoration:
-            yield tre.transform(item)
+        yield from start_decoration
+        yield from end_decoration * cmath.rect(-1.0, angle) + end
 
     if draw_groove:
         amin = -GROOVE_OVERHANG / radius
@@ -134,43 +104,38 @@ def _arc(radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, 
             groove = Polygon(points, 'grey')
             yield groove
 
-def double_switch(start, direction, radius, angle, draw_base=True, draw_groove=True):
-    return place(start, direction,
-                 _double_switch(radius, angle, draw_base, draw_groove))
 
-def _double_switch(radius, angle, draw_base=True, draw_groove=True):
+@return_collection
+def double_switch(radius, angle, draw_base=True, draw_groove=True):
     L = radius * tan(0.5*angle)
 
-    A = 0.0
-    B = 2*L
-    C = complex(L*(1-cos(angle)), -L*sin(angle))
-    D = complex(L*(1+cos(angle)), L*sin(angle))
+    C = L * (1-cmath.rect(1.0, angle))
 
     if draw_base:
-        yield from arc(A, 1.0, radius, angle,
-                       start_decoration=(), end_decoration=(),
+        yield from arc(radius, angle,
+                       start_decoration=NO_DECORATION, end_decoration=NO_DECORATION,
                        draw_base=True, draw_groove=False)
-        yield from arc(B, -1.0, radius, angle,
-                       start_decoration=(), end_decoration=(),
-                       draw_base=True, draw_groove=False)
-        yield from straight(A, B, draw_base=True, draw_groove=False)
-        yield from straight(C, D, draw_base=True, draw_groove=False)
+        yield from arc(radius, angle,
+                       start_decoration=NO_DECORATION, end_decoration=NO_DECORATION,
+                       draw_base=True, draw_groove=False) * (-1) + (2*L)
+        yield from straight(2*L, draw_base=True, draw_groove=False)
+        yield from straight(2*L, draw_base=True, draw_groove=False) * cmath.rect(1.0, angle) + C
     if draw_groove:
-        yield from arc(A, 1.0, radius, angle,
-                       start_decoration=(), end_decoration=(),
+        yield from arc(radius, angle,
+                       start_decoration=NO_DECORATION, end_decoration=NO_DECORATION,
                        draw_base=False, draw_groove=True)
-        yield from arc(B, -1.0, radius, angle,
-                       start_decoration=(), end_decoration=(),
-                       draw_base=False, draw_groove=True)
-        yield from straight(A, B, draw_base=False, draw_groove=True)
-        yield from straight(C, D, draw_base=False, draw_groove=True)
+        yield from arc(radius, angle,
+                       start_decoration=NO_DECORATION, end_decoration=NO_DECORATION,
+                       draw_base=False, draw_groove=True) * (-1) + (2*L)
+        yield from straight(2*L, draw_base=False, draw_groove=True)
+        yield from straight(2*L, draw_base=False, draw_groove=True) * cmath.rect(1.0, angle) + C
 
 
 with open('woodtrack.svg', 'w') as f:
     f.write(items_to_svg(chain(
-        straight(30.0+10.0j, 30.0+60.0j),
-        straight(30.0+80.0j, 30.0+130.0j, end_decoration=FEMALE_BASE),
-        straight(30.0+150.0j, 30.0+200.0j, start_decoration=MALE_BASE),
-        arc(80.0+10.0j, complex(cos(67.5*pi/180), sin(67.5*pi/180)), 192.0, pi/4),
-        double_switch(200+10.0j, 1.0j, 165, pi/4),
+        place(straight(50), 30+10j, 1j),
+        place(straight(50, end_decoration=FEMALE_BASE), 30+80j,  1j),
+        place(straight(50, start_decoration=MALE_BASE), 30+150j, 1j),
+        place(arc(192.0, pi/4), 80.0+10.0j, cmath.rect(1.0, 67.5*pi/180)),
+        place(double_switch(165, pi/4), 200+10j, 1j),
         )))

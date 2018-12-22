@@ -156,6 +156,10 @@ def _arc(radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, 
             yield groove
 
 def double_switch(start, direction, radius, angle, draw_base=True, draw_groove=True):
+    return place(start, direction,
+                 _double_switch(radius, angle, draw_base, draw_groove))
+
+def _double_switch(radius, angle, draw_base=True, draw_groove=True):
     L = radius * tan(0.5*angle)
 
     A = 0.0
@@ -163,31 +167,23 @@ def double_switch(start, direction, radius, angle, draw_base=True, draw_groove=T
     C = complex(L*(1-cos(angle)), -L*sin(angle))
     D = complex(L*(1+cos(angle)), L*sin(angle))
 
-    dd = abs(direction)
-    dn = direction / dd
+    dn = 1.0
     dxn, dyn = dn.real, dn.imag
 
-    trs = Transformation((dxn, -dyn, start.real, dyn, dxn, start.imag))
-
-    A = trs.transform(A)
-    B = trs.transform(B)
-    C = trs.transform(C)
-    D = trs.transform(D)
-
     if draw_base:
-        yield from arc(start, direction, radius, angle,
+        yield from arc(A, 1.0, radius, angle,
                        start_decoration=(), end_decoration=(),
                        draw_base=True, draw_groove=False)
-        yield from arc(B, -direction, radius, angle,
+        yield from arc(B, -1.0, radius, angle,
                        start_decoration=(), end_decoration=(),
                        draw_base=True, draw_groove=False)
         yield from straight(A, B, draw_base=True, draw_groove=False)
         yield from straight(C, D, draw_base=True, draw_groove=False)
     if draw_groove:
-        yield from arc(start, direction, radius, angle,
+        yield from arc(A, 1.0, radius, angle,
                        start_decoration=(), end_decoration=(),
                        draw_base=False, draw_groove=True)
-        yield from arc(B, -direction, radius, angle,
+        yield from arc(B, -1.0, radius, angle,
                        start_decoration=(), end_decoration=(),
                        draw_base=False, draw_groove=True)
         yield from straight(A, B, draw_base=False, draw_groove=True)

@@ -1,5 +1,6 @@
 from itertools import chain
 from math import sin, cos, tan, pi
+import cmath
 
 TRACK_WIDTH = 40.0
 GROOVE_WIDTH = 6.0
@@ -15,6 +16,9 @@ FEMALE_DIAM = 12.0
 FEMALE_SHAFT_WIDTH = 6.5
 FEMALE_LENGTH = 18.5
 FEMALE_OVERHANG = 1.0
+
+def direction(angle):
+    return cmath.rect(1.0, angle)
 
 def rectangle(color, x1, y1, x2, y2):
     return ('polygon', color, complex(x1, y1), complex(x2, y1), complex(x2, y2), complex(x1, y2))
@@ -54,38 +58,36 @@ def items_to_svg(items, width=300.0, height=300.0):
 '''
     return preamble + '\n'.join(item_to_svg(it) for it in items) + '\n</svg>\n'
 
-class Transformation(tuple):
-    def __new__(cls, content):
-        self = tuple.__new__(cls, content)
-        if len(self) != 6:
-            raise ValueError('Transformation: Expected six components')
-        return self
+class Transformation:
+    def __init__(self, rotation=1.0, translation=0.0):
+        complex(rotation)
+        complex(translation)
+        self.rotation = rotation
+        self.translation = translation
 
     def transform(self, item):
         if isinstance(item, tuple):
             if item[0] == 'polygon':
-                return item[:2] + tuple(self.transform(pt) for pt in item[2:])
+                return item[:2] + tuple(pt*self.rotation + self.translation for pt in item[2:])
             elif item[0] == 'circle':
-                return item[:2] + (self.transform(item[2]), item[3])
+                return item[:2] + (item[2]*self.rotation + self.translation, item[3])
             else:
                 assert False, f'unknown shape {item!r}'
 
-        x,y = item.real, item.imag
-        return complex(self[0]*x + self[1]*y + self[2], self[3]*x + self[4]*y + self[5])
+        return item*self.rotation + self.translation
 
     @classmethod
     def translate(cls, x, y):
         return cls((1.0, 0.0, x, 0.0, 1.0, y))
 
     def __add__(self, offset):
-        return Transformation(self[:4]+(self[4]+offset.real, self[5]+offset.imag))
+        return Transformation(self.rotation, self.translation + offset)
 
 
 def place(start, direction, items):
     dd = abs(direction)
     dn = direction / dd
-    dxn, dyn = dn.real, dn.imag
-    trs = Transformation((dxn, -dyn, start.real, dyn, dxn, start.imag))
+    trs = Transformation(dn, start)
     return map(trs.transform, items)
 
 
@@ -96,7 +98,7 @@ def straight(start, end, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE,
 
 def _straight(length, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
     base = rectangle('black', 0.0, 0.5*TRACK_WIDTH, length, -0.5*TRACK_WIDTH)
-    tre = Transformation((-1.0, 0.0, length, 0.0, 1.0, 0.0))
+    tre = Transformation(1, length)
 
     if draw_base:
         yield base
@@ -133,7 +135,7 @@ def _arc(radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, 
 
     base = ('polygon', 'black',) + tuple(points)
 
-    tre = Transformation((dxe, -dye, end.real, dye, dxe, end.imag))
+    tre = Transformation(-direction(angle), end)
 
     if draw_base:
         yield base

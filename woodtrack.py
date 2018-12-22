@@ -111,12 +111,14 @@ def _straight(length, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, dr
             yield groove
 
 def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
-    steps = int(radius*angle)
+    return place(start, direction,
+                 _arc(radius, angle, start_decoration, end_decoration, draw_base, draw_groove))
 
+def _arc(radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
+    steps = int(radius*angle)
     dp = angle / steps
 
-    dd = abs(direction)
-    dn = direction / dd
+    dn = 1.0
     dxn, dyn = dn.real, dn.imag
 
     dxe = dxn * cos(angle+pi) - dyn * sin(angle+pi)
@@ -131,14 +133,12 @@ def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decor
 
     base = ('polygon', 'black',) + tuple(points)
 
-    trs = Transformation((dxn, -dyn, start.real, dyn, dxn, start.imag))
-    end = trs.transform(end)
     tre = Transformation((dxe, -dye, end.real, dye, dxe, end.imag))
 
     if draw_base:
-        yield trs.transform(base)
+        yield base
         for item in start_decoration:
-            yield trs.transform(item)
+            yield item
         for item in end_decoration:
             yield tre.transform(item)
 
@@ -153,7 +153,7 @@ def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decor
             points += [complex(ri * sin(amin+i*dp), radius - ri * cos(amin+i*dp)) for i in range(steps, -1, -1)]
 
             groove = ('polygon', 'grey',) + tuple(points)
-            yield trs.transform(groove)
+            yield groove
 
 def double_switch(start, direction, radius, angle, draw_base=True, draw_groove=True):
     L = radius * tan(0.5*angle)

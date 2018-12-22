@@ -2,6 +2,8 @@ from itertools import chain
 from math import sin, cos, tan, pi
 import cmath
 
+from shapes import Polygon, Circle
+
 TRACK_WIDTH = 40.0
 GROOVE_WIDTH = 6.0
 CENTER_WIDTH = 20.0
@@ -21,26 +23,21 @@ def direction(angle):
     return cmath.rect(1.0, angle)
 
 def rectangle(color, x1, y1, x2, y2):
-    return ('polygon', color, complex(x1, y1), complex(x2, y1), complex(x2, y2), complex(x1, y2))
+    return Polygon([complex(x1, y1), complex(x2, y1), complex(x2, y2), complex(x1, y2)], color)
 
 MALE_BASE = [
     rectangle('black', MALE_OVERHANG, 0.5*MALE_SHAFT_WIDTH, -MALE_LENGTH+0.5*MALE_DIAM, -0.5*MALE_SHAFT_WIDTH),
-    ('circle', 'black', complex(-MALE_LENGTH + 0.5*MALE_DIAM, 0.0), 0.5*MALE_DIAM)
+    Circle(complex(-MALE_LENGTH + 0.5*MALE_DIAM, 0.0), 0.5*MALE_DIAM, 'black')
 ]
 
 FEMALE_BASE = [
     rectangle('white', -FEMALE_OVERHANG, 0.5*FEMALE_SHAFT_WIDTH, FEMALE_LENGTH-0.5*FEMALE_DIAM, -0.5*FEMALE_SHAFT_WIDTH),
-    ('circle', 'white', complex(FEMALE_LENGTH - 0.5*FEMALE_DIAM, 0.0), 0.5*FEMALE_DIAM)
+    Circle(complex(FEMALE_LENGTH - 0.5*FEMALE_DIAM, 0.0), 0.5*FEMALE_DIAM, 'white')
 ]
 
 
 def item_to_svg(item):
-    if item[0] == 'circle':
-        _, color, center, r = item
-        return f'<circle cx="{center.real}" cy="{center.imag}" r="{r}" fill="{color}"/>'
-    elif item[0] == 'polygon':
-        points = ' '.join(f'{pt.real},{pt.imag}' for pt in item[2:])
-        return f'<polygon points="{points}" fill="{item[1]}"/>'
+    return item.to_svg()
 
 def items_to_svg(items, width=300.0, height=300.0):
     preamble = f'''<?xml version="1.0" standalone="yes"?>
@@ -133,7 +130,7 @@ def _arc(radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, 
     points = [complex(ro * sin(i*dp), radius - ro * cos(i*dp)) for i in range(steps+1)]
     points += [complex(ri * sin(i*dp), radius - ri * cos(i*dp)) for i in range(steps, -1, -1)]
 
-    base = ('polygon', 'black',) + tuple(points)
+    base = Polygon(points, 'black')
 
     tre = Transformation(-direction(angle), end)
 
@@ -154,7 +151,7 @@ def _arc(radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, 
             points = [complex(ro * sin(amin+i*dp), radius - ro * cos(amin+i*dp)) for i in range(steps+1)]
             points += [complex(ri * sin(amin+i*dp), radius - ri * cos(amin+i*dp)) for i in range(steps, -1, -1)]
 
-            groove = ('polygon', 'grey',) + tuple(points)
+            groove = Polygon(points, 'grey')
             yield groove
 
 def double_switch(start, direction, radius, angle, draw_base=True, draw_groove=True):

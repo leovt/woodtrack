@@ -80,28 +80,35 @@ class Transformation(tuple):
     def __add__(self, offset):
         return Transformation(self[:4]+(self[4]+offset.real, self[5]+offset.imag))
 
-def straight(start, end, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
-    d = end - start
-    dd = abs(d)
-    dn = d / dd
+
+def place(start, direction, items):
+    dd = abs(direction)
+    dn = direction / dd
     dxn, dyn = dn.real, dn.imag
-
     trs = Transformation((dxn, -dyn, start.real, dyn, dxn, start.imag))
-    tre = Transformation((-dxn, dyn, end.real, -dyn, -dxn, end.imag))
+    return map(trs.transform, items)
 
-    base = rectangle('black', 0.0, 0.5*TRACK_WIDTH, dd, -0.5*TRACK_WIDTH)
+
+def straight(start, end, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
+    return place(start, (end-start)/abs(end-start),
+                 _straight(abs(end-start), start_decoration, end_decoration, draw_base, draw_groove))
+
+
+def _straight(length, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
+    base = rectangle('black', 0.0, 0.5*TRACK_WIDTH, length, -0.5*TRACK_WIDTH)
+    tre = Transformation((-1.0, 0.0, length, 0.0, 1.0, 0.0))
 
     if draw_base:
-        yield trs.transform(base)
+        yield base
         for item in start_decoration:
-            yield trs.transform(item)
+            yield item
         for item in end_decoration:
             yield tre.transform(item)
 
     if draw_groove:
         for sign in (1.0, -1.0):
-            groove = rectangle('grey', -GROOVE_OVERHANG, sign*CENTER_WIDTH*0.5, dd + GROOVE_OVERHANG, sign*(CENTER_WIDTH*0.5+GROOVE_WIDTH))
-            yield trs.transform(groove)
+            groove = rectangle('grey', -GROOVE_OVERHANG, sign*CENTER_WIDTH*0.5, length + GROOVE_OVERHANG, sign*(CENTER_WIDTH*0.5+GROOVE_WIDTH))
+            yield groove
 
 def arc(start, direction, radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
     steps = int(radius*angle)

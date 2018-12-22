@@ -19,9 +19,6 @@ FEMALE_SHAFT_WIDTH = 6.5
 FEMALE_LENGTH = 18.5
 FEMALE_OVERHANG = 1.0
 
-def direction(angle):
-    return cmath.rect(1.0, angle)
-
 def rectangle(color, x1, y1, x2, y2):
     return Polygon([complex(x1, y1), complex(x2, y1), complex(x2, y2), complex(x1, y2)], color)
 
@@ -35,9 +32,6 @@ FEMALE_BASE = [
     Circle(complex(FEMALE_LENGTH - 0.5*FEMALE_DIAM, 0.0), 0.5*FEMALE_DIAM, 'white')
 ]
 
-
-def item_to_svg(item):
-    return item.to_svg()
 
 def items_to_svg(items, width=300.0, height=300.0):
     preamble = f'''<?xml version="1.0" standalone="yes"?>
@@ -53,7 +47,7 @@ def items_to_svg(items, width=300.0, height=300.0):
  </defs>
  <rect id="background" width="{width}" height="{height}" fill="url(#grid)" />
 '''
-    return preamble + '\n'.join(item_to_svg(it) for it in items) + '\n</svg>\n'
+    return preamble + '\n'.join(item.to_svg() for item in items) + '\n</svg>\n'
 
 class Transformation:
     def __init__(self, rotation=1.0, translation=0.0):
@@ -63,14 +57,6 @@ class Transformation:
         self.translation = translation
 
     def transform(self, item):
-        if isinstance(item, tuple):
-            if item[0] == 'polygon':
-                return item[:2] + tuple(pt*self.rotation + self.translation for pt in item[2:])
-            elif item[0] == 'circle':
-                return item[:2] + (item[2]*self.rotation + self.translation, item[3])
-            else:
-                assert False, f'unknown shape {item!r}'
-
         return item*self.rotation + self.translation
 
     @classmethod
@@ -117,13 +103,7 @@ def _arc(radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, 
     steps = int(radius*angle)
     dp = angle / steps
 
-    dn = 1.0
-    dxn, dyn = dn.real, dn.imag
-
-    dxe = dxn * cos(angle+pi) - dyn * sin(angle+pi)
-    dye = dxn * sin(angle+pi) + dyn * cos(angle+pi)
-
-    end = complex(radius * sin(angle), radius * (1-cos(angle)))
+    end = radius * complex(sin(angle), 1-cos(angle))
 
     ro = radius + 0.5*TRACK_WIDTH
     ri = radius - 0.5*TRACK_WIDTH
@@ -132,7 +112,7 @@ def _arc(radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, 
 
     base = Polygon(points, 'black')
 
-    tre = Transformation(-direction(angle), end)
+    tre = Transformation(-cmath.rect(1.0, angle), end)
 
     if draw_base:
         yield base
@@ -165,9 +145,6 @@ def _double_switch(radius, angle, draw_base=True, draw_groove=True):
     B = 2*L
     C = complex(L*(1-cos(angle)), -L*sin(angle))
     D = complex(L*(1+cos(angle)), L*sin(angle))
-
-    dn = 1.0
-    dxn, dyn = dn.real, dn.imag
 
     if draw_base:
         yield from arc(A, 1.0, radius, angle,

@@ -52,8 +52,8 @@ def items_to_svg(items, width=300.0, height=300.0):
     return preamble + '\n'.join(item.to_svg() for item in items) + '\n</svg>\n'
 
 @return_collection
-def place(items, start, direction):
-    return items * (direction/abs(direction)) + start
+def place(items, x, y, angle_in_degrees):
+    return items * cmath.rect(1.0, angle_in_degrees * pi / 180) + complex(x, y)
 
 
 @return_collection
@@ -73,7 +73,8 @@ def straight(length, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, dra
 
 
 @return_collection
-def arc(radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
+def arc(radius, angle_in_degrees, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, draw_base=True, draw_groove=True):
+    angle = angle_in_degrees * pi / 180
     steps = int(radius*angle)
     dp = angle / steps
 
@@ -106,25 +107,26 @@ def arc(radius, angle, start_decoration=FEMALE_BASE, end_decoration=MALE_BASE, d
 
 
 @return_collection
-def double_switch(radius, angle, draw_base=True, draw_groove=True):
+def double_switch(radius, angle_in_degrees, draw_base=True, draw_groove=True):
+    angle = angle_in_degrees * pi / 180
     L = radius * tan(0.5*angle)
 
     C = L * (1-cmath.rect(1.0, angle))
 
     if draw_base:
-        yield from arc(radius, angle,
+        yield from arc(radius, angle_in_degrees,
                        start_decoration=NO_DECORATION, end_decoration=NO_DECORATION,
                        draw_base=True, draw_groove=False)
-        yield from arc(radius, angle,
+        yield from arc(radius, angle_in_degrees,
                        start_decoration=NO_DECORATION, end_decoration=NO_DECORATION,
                        draw_base=True, draw_groove=False) * (-1) + (2*L)
         yield from straight(2*L, draw_base=True, draw_groove=False)
         yield from straight(2*L, draw_base=True, draw_groove=False) * cmath.rect(1.0, angle) + C
     if draw_groove:
-        yield from arc(radius, angle,
+        yield from arc(radius, angle_in_degrees,
                        start_decoration=NO_DECORATION, end_decoration=NO_DECORATION,
                        draw_base=False, draw_groove=True)
-        yield from arc(radius, angle,
+        yield from arc(radius, angle_in_degrees,
                        start_decoration=NO_DECORATION, end_decoration=NO_DECORATION,
                        draw_base=False, draw_groove=True) * (-1) + (2*L)
         yield from straight(2*L, draw_base=False, draw_groove=True)
@@ -133,9 +135,9 @@ def double_switch(radius, angle, draw_base=True, draw_groove=True):
 
 with open('woodtrack.svg', 'w') as f:
     f.write(items_to_svg(chain(
-        place(straight(50), 30+10j, 1j),
-        place(straight(50, end_decoration=FEMALE_BASE), 30+80j,  1j),
-        place(straight(50, start_decoration=MALE_BASE), 30+150j, 1j),
-        place(arc(192.0, pi/4), 80.0+10.0j, cmath.rect(1.0, 67.5*pi/180)),
-        place(double_switch(165, pi/4), 200+10j, 1j),
+        place(straight(50), 30, 10, 90),
+        place(straight(50, end_decoration=FEMALE_BASE), 30, 80,  90),
+        place(straight(50, start_decoration=MALE_BASE), 30, 150, 90),
+        place(arc(192.0, 45), 80, 10, 67.5),
+        place(double_switch(165, 45), 200, 10, 90),
         )))
